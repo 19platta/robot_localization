@@ -204,11 +204,29 @@ class ParticleFilter(Node):
                      new_odom_xy_theta[2] - self.current_odom_xy_theta[2])
 
             self.current_odom_xy_theta = new_odom_xy_theta
+            '''
+            Kate's pseudo code addition.
+
+            #if the robot has moved, then we need to move the particles accordingly
+            for particle in particles:
+                particle.theta += delta[2] #because theta doesn't depend on fram
+                
+                #translate x and y from odom frame to particle frame
+                #i can't do this without a whiteboard, but i think its maybe this????? 
+                #delta_x_in_particle_frame = cos(particle frame angle)*sqrt(delta.x^2 + delta.y^2)
+                #delta_y_in_particle_frame = sin(particle frame angle)*sqrt(delta.x^2 + delta.y^2)
+
+
+                particle.x += delta_x_in_particle_frame
+                particle.y += delta_y_in_particle_frame
+        
+            '''
         else:
             self.current_odom_xy_theta = new_odom_xy_theta
             return
 
         # TODO: modify particles using delta
+
 
     def resample_particles(self):
         """ Resample the particles according to the new particle weights.
