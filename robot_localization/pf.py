@@ -244,6 +244,36 @@ class ParticleFilter(Node):
             theta: the angle relative to the robot frame for each corresponding reading 
         """
         # TODO: implement this
+        """
+        Kate's pseudo code
+
+        for particle in particles:
+            #list to store how far off our points are
+            probability array = []
+
+            #loop through each angle
+            for r_point,theta_point in r, theta:
+                #convert from robot centric to map centric
+                [x_delta, y_delta] = pol_2_cart(r_point, theta_point + particle.theta)
+                laser_point = [particle.x + x_delta, particle.y + y_delta]
+
+                #find the distance from our laser point to a point on the map
+                difference = occupancy_field.get_closest_obstacle_distance(laser_point[0],laser_point[1])
+                
+                #shitty probability function, this could be done better
+                if difference > .1:
+                    probability_array.append(.1)
+                else:
+                    probability_array.append(1)
+
+            #find general probability for particle
+            probability = mean(probability_array)
+            #update particle probability here, don't remember what function to do for that
+            
+
+        """
+
+
         pass
 
     @staticmethod
