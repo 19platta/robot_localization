@@ -2,6 +2,7 @@
 
 """ This is the starter code for the robot localization project """
 
+from xxlimited import new
 import rclpy
 from threading import Thread
 from rclpy.time import Time
@@ -212,31 +213,35 @@ class ParticleFilter(Node):
                      new_odom_xy_theta[1] - self.current_odom_xy_theta[1],
                      new_odom_xy_theta[2] - self.current_odom_xy_theta[2])
 
+
+            end_point_in_odom_mat = np.array([[np.cos(new_odom_xy_theta[2]), -np.sin(new_odom_xy_theta[2]), new_odom_xy_theta[0]],
+                                    [np.sin(new_odom_xy_theta[2]), np.cos(new_odom_xy_theta[2]), new_odom_xy_theta[1]],
+                                    [0,0,1]])
+
+            start_point_in_odom_mat = np.array([[np.cos(self.current_odom_xy_theta[2]), -np.sin(self.current_odom_xy_theta[2]), self.current_odom_xy_theta[0]],
+                                    [np.sin(self.current_odom_xy_theta[2]), np.cos(self.current_odom_xy_theta[2]), self.current_odom_xy_theta[1]],
+                                    [0,0,1]])
+
+            inverse_start_point_in_odom_mat = np.linalg.inv(start_point_in_odom_mat)
+            end_in_start_frame_mat = np.matmul(inverse_start_point_in_odom_mat,end_point_in_odom_mat)
+
+
+            for particle in self.particle_cloud:
+                particle_in_map_mat = np.array([[np.cos(particle.theta), -np.sin(particle.theta), particle.x],
+                                        [np.sin(particle.theta), np.cos(particle.theta), particle.y],
+                                        [0,0,1]])
+                new_particle_location_mat = np.matmul(end_in_start_frame_mat, particle_in_map_mat)
+                particle.x = new_particle_location_mat[0]
+                particle.y = new_particle_location_mat[1]
+                particle.theta = particle.theta + delta[2]
+                
+
             self.current_odom_xy_theta = new_odom_xy_theta
 
-            '''
-            Kate's pseudo code addition.
-
-            #if the robot has moved, then we need to move the particles accordingly
-            for particle in particles:
-                
-                #translate x and y from odom frame to particle frame
-                #i can't do this without a whiteboard, but i think its maybe this????? 
-                #delta_x_in_particle_frame = cos(particle frame angle)*sqrt(delta.x^2 + delta.y^2)
-                #delta_y_in_particle_frame = sin(particle frame angle)*sqrt(delta.x^2 + delta.y^2)
-
-
-                particle.x += delta_x_in_particle_frame
-                particle.y += delta_y_in_particle_frame
-                particle.theta += delta[2] #because theta doesn't depend on fram
-
-        
-            '''
         else:
             self.current_odom_xy_theta = new_odom_xy_theta
             return
 
-        # TODO: modify particles using delta
 
 
     def resample_particles(self):
