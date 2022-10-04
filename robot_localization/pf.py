@@ -219,7 +219,6 @@ class ParticleFilter(Node):
 
             #if the robot has moved, then we need to move the particles accordingly
             for particle in particles:
-                particle.theta += delta[2] #because theta doesn't depend on fram
                 
                 #translate x and y from odom frame to particle frame
                 #i can't do this without a whiteboard, but i think its maybe this????? 
@@ -229,6 +228,8 @@ class ParticleFilter(Node):
 
                 particle.x += delta_x_in_particle_frame
                 particle.y += delta_y_in_particle_frame
+                particle.theta += delta[2] #because theta doesn't depend on fram
+
         
             '''
         else:
