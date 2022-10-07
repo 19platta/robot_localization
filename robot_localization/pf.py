@@ -2,6 +2,7 @@
 
 """ This is the starter code for the robot localization project """
 
+from curses import pair_content
 from xxlimited import new
 import rclpy
 from threading import Thread
@@ -13,11 +14,13 @@ from geometry_msgs.msg import PoseWithCovarianceStamped, PoseArray, Pose, Point,
 from rclpy.duration import Duration
 import math
 import time
+import yaml
 import numpy as np
 from occupancy_field import OccupancyField
 from helper_functions import TFHelper
 from rclpy.qos import qos_profile_sensor_data
 from angle_helpers import quaternion_from_euler
+from helper_functions import draw_random_sample
 
 
 def pol2cart(rho, theta):
@@ -252,8 +255,7 @@ class ParticleFilter(Node):
         """
         # make sure the distribution is normalized
         self.normalize_particles()
-        # TODO: fill out the rest of the implementation
-
+        self.particle_cloud = draw_random_sample(self.particle_cloud, [p.w for p in self.particle_cloud], self.n_particles)
 
     def update_particles_with_laser(self, r, theta):
         """ Updates the particle weights in response to the scan data
@@ -283,29 +285,39 @@ class ParticleFilter(Node):
         xy_theta = self.transform_helper.convert_pose_to_xy_and_theta(msg.pose.pose)
         self.initialize_particle_cloud(msg.header.stamp, xy_theta)
 
-    def initialize_particle_cloud(self, timestamp, xy_theta=None):
+    def initialize_particle_cloud(self, timestamp, map_file='../maps/gauntlet.yaml', xy_theta=None, dist_thresh=1.5):
         """ Initialize the particle cloud.
             Arguments
             xy_theta: a triple consisting of the mean x, y, and theta (yaw) to initialize the
                       particle cloud around.  If this input is omitted, the odometry will be used """
-        if xy_theta is None:
-            xy_theta = self.transform_helper.convert_pose_to_xy_and_theta(self.odom_pose)
-        self.particle_cloud = []
-        for i in range(self.n_particles):
-            self.particle_cloud.append(Particle(0,0,0,0))
-
-        #QUESTION - do we know things about the map??? how big is it???
 
         self.normalize_particles()
-        #TODO: update where the particles are starting to be more reasonable
 
+        if xy_theta is None:
+            xy_theta = self.transform_helper.convert_pose_to_xy_and_theta(self.odom_pose)
+        # generate a random number between 0 and 1 from a uniform distribution
+        x_num = np.random.standard_normal(self.n_particles)
+        y_num = np.random.standard_normal(self.n_particles)
+        theta_num = np.random.standard_normal(self.n_particles)
+
+        # multiply the 
+        for i in range(self.n_particles):
+            new_particle = Particle()
+            new_particle.x = x_num[i] * xy_theta[0]
+            new_particle.y = y_num[i] * xy_theta[1]
+            new_particle.theta = theta_num[i] * xy_theta[2]
+
+            self.particle_cloud[i] = new_particle
+        
     def normalize_particles(self):
         """ Make sure the particle weights define a valid distribution (i.e. sum to 1.0) 
         From https://stackoverflow.com/questions/46160717/two-methods-to-normalise-array-to-sum-total-to-1-0"""
-        weights = np.array([particle.i for particle in self.particle_cloud])
+        weights = np.array([particle.w for particle in self.particle_cloud])
         weights = (weights - min(weights)) / (max(weights) - min(weights))
-        weights = weights / sum(weights)
-        print("Sum of weights:", sum(weights))
+        sum_weights = sum(weights)
+        # weights = weights / sum(weights)
+        for particle in self.particle_cloud:
+            particle.w = particle.w/sum_weights
         pass
 
     def publish_particles(self, timestamp):
