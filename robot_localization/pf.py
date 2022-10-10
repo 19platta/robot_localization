@@ -195,8 +195,9 @@ class ParticleFilter(Node):
         guess_y = np.mean([particle.y for particle in self.particle_cloud])
         guess_theta = np.mean([particle.theta for particle in self.particle_cloud])
         
-        position = Point(x=guess_x, y=guess_y, z=0.0),
-        orientation = quaternion_from_euler(0.0,0.0,guess_theta)
+        position = Point(x=guess_x, y=guess_y, z=0.0)
+        quat_data = quaternion_from_euler(0.0,0.0,guess_theta)
+        orientation = Quaternion(x=quat_data[0], y=quat_data[1], z=quat_data[2], w=quat_data[3])
         self.robot_pose = Pose(position=position, orientation=orientation)
 
         self.transform_helper.fix_map_to_odom_transform(self.robot_pose,
@@ -272,10 +273,11 @@ class ParticleFilter(Node):
                 y_map_frame = particle.y + y_base_frame
 
                 dist_to_point = self.occupancy_field.get_closest_obstacle_distance(x_map_frame,y_map_frame)
-                if dist_to_point > .1:
-                    probability_array.append(.1)
-                else:
-                    probability_array.append(1)
+                for dist in dist_to_point:
+                    if dist > .1:
+                        probability_array.append(.1)
+                    else:
+                        probability_array.append(1)
             particle.w = np.mean(probability_array)
 
     @staticmethod
@@ -291,14 +293,17 @@ class ParticleFilter(Node):
             xy_theta: a triple consisting of the mean x, y, and theta (yaw) to initialize the
                       particle cloud around.  If this input is omitted, the odometry will be used """
 
-        self.normalize_particles()
+        if self.particle_cloud:
+            self.normalize_particles()
 
         if xy_theta is None:
             xy_theta = self.transform_helper.convert_pose_to_xy_and_theta(self.odom_pose)
-        # generate a random number between 0 and 1 from a uniform distribution
+        # generate a number from a standard normal distribution to multiply by 
         x_num = np.random.standard_normal(self.n_particles)
         y_num = np.random.standard_normal(self.n_particles)
         theta_num = np.random.standard_normal(self.n_particles)
+
+        self.particle_cloud = []
 
         for i in range(self.n_particles):
             new_particle = Particle()
@@ -306,12 +311,13 @@ class ParticleFilter(Node):
             new_particle.y = y_num[i] * xy_theta[1]
             new_particle.theta = theta_num[i] * xy_theta[2]
 
-            self.particle_cloud[i] = new_particle
+            self.particle_cloud.append(new_particle)
         
     def normalize_particles(self):
         """ Make sure the particle weights define a valid distribution (i.e. sum to 1.0) 
         From https://stackoverflow.com/questions/46160717/two-methods-to-normalise-array-to-sum-total-to-1-0"""
         weights = np.array([particle.w for particle in self.particle_cloud])
+        print(weights)
         weights = (weights - min(weights)) / (max(weights) - min(weights))
         sum_weights = sum(weights)
         # weights = weights / sum(weights)

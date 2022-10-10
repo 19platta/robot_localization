@@ -1,6 +1,15 @@
 # Robot Localization Project Report
 Annabelle Platt and Kate Mackowiak
 
+## Intructions for running the project:
+Set up Gazebo: `ros2 launch neato2_gazebo neato_gauntlet_world.py`
+
+Launch rviz: `rviz2` and open the saved configuration
+
+To run the filter code, run `ros2 launch robot_localization test_pf.py map_yaml:=map_name.yaml`, where `map_name.yaml` is the path to the map to use. 
+
+To drive the robot in Gazebo, run `ros2 run teleop_twist_keyboard teleop_twist_keyboard`
+
 ## Project Goal
 Our goal was to estimate the location of the robot in a given map based on odometry and lidar scan data.  
 
