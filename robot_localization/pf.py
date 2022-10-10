@@ -300,7 +300,6 @@ class ParticleFilter(Node):
         y_num = np.random.standard_normal(self.n_particles)
         theta_num = np.random.standard_normal(self.n_particles)
 
-        # multiply the 
         for i in range(self.n_particles):
             new_particle = Particle()
             new_particle.x = x_num[i] * xy_theta[0]
