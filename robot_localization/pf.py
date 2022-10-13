@@ -2,6 +2,7 @@
 
 """ This is the starter code for the robot localization project """
 
+from cmath import inf
 from curses import pair_content
 from xxlimited import new
 import rclpy
@@ -47,6 +48,9 @@ class Particle(object):
         self.theta = theta
         self.x = x
         self.y = y
+    
+    def __repr__(self) -> str:
+        return f"Particle location: ({self.x}, {self.y})"
 
     def as_pose(self):
         """ A helper function to convert a particle to a geometry_msgs/Pose message """
@@ -191,9 +195,13 @@ class ParticleFilter(Node):
 
         # assign the latest pose into self.robot_pose as a geometry_msgs.Pose object
         # just to get started we will fix the robot's pose to always be at the origin
-        guess_x = np.mean([particle.x for particle in self.particle_cloud])
-        guess_y = np.mean([particle.y for particle in self.particle_cloud])
-        guess_theta = np.mean([particle.theta for particle in self.particle_cloud])
+        guess_x = float(np.mean([particle.x for particle in self.particle_cloud]))
+        guess_y = float(np.mean([particle.y for particle in self.particle_cloud]))
+        # guess the angle of the highest weighted particle
+        theta_idx = np.argmax([particle.w for particle in self.particle_cloud])
+        guess_theta = self.particle_cloud[theta_idx].theta 
+        print(f"Robot pose: ({guess_x}, {guess_y}) at angle {guess_theta}")
+
         
         position = Point(x=guess_x, y=guess_y, z=0.0)
         quat_data = quaternion_from_euler(0.0,0.0,guess_theta)
@@ -217,9 +225,9 @@ class ParticleFilter(Node):
                      new_odom_xy_theta[1] - self.current_odom_xy_theta[1],
                      new_odom_xy_theta[2] - self.current_odom_xy_theta[2])
 
-
-            end_point_in_odom_mat = np.array([[np.cos(new_odom_xy_theta[2]), -np.sin(new_odom_xy_theta[2]), new_odom_xy_theta[0]],
-                                    [np.sin(new_odom_xy_theta[2]), np.cos(new_odom_xy_theta[2]), new_odom_xy_theta[1]],
+            new_theta_rads = np.deg2rad(new_odom_xy_theta[2])
+            end_point_in_odom_mat = np.array([[np.cos(new_theta_rads), -np.sin(new_theta_rads), new_odom_xy_theta[0]],
+                                    [np.sin(new_theta_rads), np.cos(new_theta_rads), new_odom_xy_theta[1]],
                                     [0,0,1]])
 
             start_point_in_odom_mat = np.array([[np.cos(self.current_odom_xy_theta[2]), -np.sin(self.current_odom_xy_theta[2]), self.current_odom_xy_theta[0]],
@@ -234,10 +242,10 @@ class ParticleFilter(Node):
                 particle_in_map_mat = np.array([[np.cos(particle.theta), -np.sin(particle.theta), particle.x],
                                         [np.sin(particle.theta), np.cos(particle.theta), particle.y],
                                         [0,0,1]])
-                new_particle_location_mat = np.matmul(end_in_start_frame_mat, particle_in_map_mat)
-                particle.x = new_particle_location_mat[0]
-                particle.y = new_particle_location_mat[1]
-                particle.theta = particle.theta + delta[2]
+                new_particle_location_mat = np.matmul(particle_in_map_mat, end_in_start_frame_mat)
+                particle.x = float(new_particle_location_mat[0][2])
+                particle.y = float(new_particle_location_mat[1][2])
+                particle.theta += delta[2]
                 
 
             self.current_odom_xy_theta = new_odom_xy_theta
@@ -272,13 +280,16 @@ class ParticleFilter(Node):
                 x_map_frame = particle.x + x_base_frame
                 y_map_frame = particle.y + y_base_frame
 
-                dist_to_point = self.occupancy_field.get_closest_obstacle_distance(x_map_frame,y_map_frame)
-                for dist in dist_to_point:
-                    if dist > .1:
-                        probability_array.append(.1)
-                    else:
-                        probability_array.append(1)
-            particle.w = np.mean(probability_array)
+                try: 
+                    dist_to_point = self.occupancy_field.get_closest_obstacle_distance(x_map_frame,y_map_frame)
+                except:
+                    dist_to_point = 10
+                #for dist in dist_to_point:
+                if dist_to_point > .1:
+                    probability_array.append(.1)
+                else:
+                    probability_array.append(1)
+            particle.w = np.mean(probability_array) 
 
     @staticmethod
     def update_initial_pose(self, msg):
@@ -307,18 +318,21 @@ class ParticleFilter(Node):
 
         for i in range(self.n_particles):
             new_particle = Particle()
-            new_particle.x = x_num[i] * xy_theta[0]
-            new_particle.y = y_num[i] * xy_theta[1]
-            new_particle.theta = theta_num[i] * xy_theta[2]
-
+            new_particle.x = float(x_num[i] * xy_theta[0])
+            new_particle.y = float(y_num[i] * xy_theta[1])
+            new_particle.theta = float(theta_num[i] * xy_theta[2])
             self.particle_cloud.append(new_particle)
+        print(self.particle_cloud)
+        
         
     def normalize_particles(self):
         """ Make sure the particle weights define a valid distribution (i.e. sum to 1.0) 
-        From https://stackoverflow.com/questions/46160717/two-methods-to-normalise-array-to-sum-total-to-1-0"""
+        From https://www.statology.org/normalize-data-between-0-and-1/"""
         weights = np.array([particle.w for particle in self.particle_cloud])
-        print(weights)
-        weights = (weights - min(weights)) / (max(weights) - min(weights))
+        max_weight = max(weights)
+        min_weight = min(weights)
+        for weight in weights: 
+            weight = (weight - min_weight) / (max_weight - min_weight)
         sum_weights = sum(weights)
         # weights = weights / sum(weights)
         for particle in self.particle_cloud:
