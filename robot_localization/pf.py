@@ -29,6 +29,11 @@ def pol2cart(rho, theta):
     y = rho * np.sin(np.pi*theta/180)
     return x, y
 
+def pol2cart_rad(rho, theta):
+    x = rho * np.cos(theta)
+    y = rho * np.sin(theta)
+    return x, y
+
 class Particle(object):
     """ Represents a hypothesis (particle) of the robot's pose consisting of x,y and theta (yaw)
         Attributes:
@@ -156,13 +161,13 @@ class ParticleFilter(Node):
             return
         
         (r, theta) = self.transform_helper.convert_scan_to_polar_in_robot_frame(msg, self.base_frame)
-        print("r[0]={0}, theta[0]={1}".format(r[0], theta[0]))
+        # print("r[0]={0}, theta[0]={1}".format(r[0], theta[0]))
         # clear the current scan so that we can process the next one
         self.scan_to_process = None
 
         self.odom_pose = new_pose
         new_odom_xy_theta = self.transform_helper.convert_pose_to_xy_and_theta(self.odom_pose)
-        print("x: {0}, y: {1}, yaw: {2}".format(*new_odom_xy_theta))
+        # print("x: {0}, y: {1}, yaw: {2}".format(*new_odom_xy_theta))
 
         if not self.current_odom_xy_theta:
             self.current_odom_xy_theta = new_odom_xy_theta
@@ -200,7 +205,7 @@ class ParticleFilter(Node):
         # guess the angle of the highest weighted particle
         theta_idx = np.argmax([particle.w for particle in self.particle_cloud])
         guess_theta = self.particle_cloud[theta_idx].theta 
-        print(f"Robot pose: ({guess_x}, {guess_y}) at angle {guess_theta}")
+        # print(f"Robot pose: ({guess_x}, {guess_y}) at angle {guess_theta}")
 
         
         position = Point(x=guess_x, y=guess_y, z=0.0)
@@ -274,9 +279,11 @@ class ParticleFilter(Node):
         for particle in self.particle_cloud:
             probability_array = []
             for idx in range(len(theta)):
+                if np.isinf(r[idx]):
+                    continue
                 r_base_frame = r[idx]
                 theta_base_frame = r[idx]
-                [x_base_frame, y_base_frame] = pol2cart(r_base_frame,theta_base_frame + particle.theta)
+                [x_base_frame, y_base_frame] = pol2cart_rad(r_base_frame,theta_base_frame + particle.theta)
                 x_map_frame = particle.x + x_base_frame
                 y_map_frame = particle.y + y_base_frame
 
@@ -318,9 +325,9 @@ class ParticleFilter(Node):
 
         for i in range(self.n_particles):
             new_particle = Particle()
-            new_particle.x = float(x_num[i] * xy_theta[0])
-            new_particle.y = float(y_num[i] * xy_theta[1])
-            new_particle.theta = float(theta_num[i] * xy_theta[2])
+            new_particle.x = float(x_num[i] + xy_theta[0])
+            new_particle.y = float(y_num[i] + xy_theta[1])
+            new_particle.theta = float(theta_num[i] + xy_theta[2])
             self.particle_cloud.append(new_particle)
         print(self.particle_cloud)
         

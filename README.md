@@ -10,6 +10,8 @@ To run the filter code, run `ros2 launch robot_localization test_pf.py map_yaml:
 
 To drive the robot in Gazebo, run `ros2 run teleop_twist_keyboard teleop_twist_keyboard`
 
+# Project Report
+
 ## Project Goal
 Our goal was to estimate the location of the robot in a given map based on odometry and lidar scan data.  
 
