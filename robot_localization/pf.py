@@ -209,12 +209,8 @@ class ParticleFilter(Node):
         # guess the angle of the highest weighted particle
         theta_idx = np.argmax([particle.w for particle in self.particle_cloud])
         guess_theta = self.particle_cloud[theta_idx].theta 
-        # print(theta_idx)
-        guess_theta = np.mean([particle.theta for particle in self.particle_cloud])
-        # print(f"Robot pose: ({guess_x}, {guess_y}) at angle {guess_theta}")
-        # print(f"thetas: ({[p.theta for p in self.particle_cloud]})")
-
         
+        # arrange coordinates into ROS messages
         position = Point(x=guess_x, y=guess_y, z=0.0)
         quat_data = quaternion_from_euler(0.0,0.0,guess_theta)
         orientation = Quaternion(x=quat_data[0], y=quat_data[1], z=quat_data[2], w=quat_data[3])
@@ -233,12 +229,12 @@ class ParticleFilter(Node):
         new_odom_xy_theta = self.transform_helper.convert_pose_to_xy_and_theta(self.odom_pose)
         # compute the change in x,y,theta since our last update
         if self.current_odom_xy_theta:
-            old_odom_xy_theta = self.current_odom_xy_theta
             delta = (new_odom_xy_theta[0] - self.current_odom_xy_theta[0],
                      new_odom_xy_theta[1] - self.current_odom_xy_theta[1],
                      new_odom_xy_theta[2] - self.current_odom_xy_theta[2])
 
             new_theta_rads = new_odom_xy_theta[2]
+            # represent the old and new points in a rotation matrix 
             end_point_in_odom_mat = np.array([[np.cos(new_theta_rads), -np.sin(new_theta_rads), new_odom_xy_theta[0]],
                                     [np.sin(new_theta_rads), np.cos(new_theta_rads), new_odom_xy_theta[1]],
                                     [0,0,1]])
@@ -246,11 +242,11 @@ class ParticleFilter(Node):
             start_point_in_odom_mat = np.array([[np.cos(self.current_odom_xy_theta[2]), -np.sin(self.current_odom_xy_theta[2]), self.current_odom_xy_theta[0]],
                                     [np.sin(self.current_odom_xy_theta[2]), np.cos(self.current_odom_xy_theta[2]), self.current_odom_xy_theta[1]],
                                     [0,0,1]])
-
+            # invert the start point and multiply so we can convert the end point to the start point's frame
             inverse_start_point_in_odom_mat = np.linalg.inv(start_point_in_odom_mat)
             end_in_start_frame_mat = np.matmul(inverse_start_point_in_odom_mat,end_point_in_odom_mat)
 
-
+            # update each particle based on the change calculated above
             for particle in self.particle_cloud:
                 particle_in_map_mat = np.array([[np.cos(particle.theta), -np.sin(particle.theta), particle.x],
                                         [np.sin(particle.theta), np.cos(particle.theta), particle.y],
@@ -298,8 +294,10 @@ class ParticleFilter(Node):
                 try: 
                     dist_to_point = self.occupancy_field.get_closest_obstacle_distance(x_map_frame,y_map_frame)
                 except:
+                    # if the dist is infinite or invalid, set the it high so the probability will be low
                     dist_to_point = 10
-                #for dist in dist_to_point:
+                
+                # assign probabilities to particles based on distance to obstacle
                 if dist_to_point > .1:
                     probability_array.append(.1)
                 else:
@@ -324,21 +322,20 @@ class ParticleFilter(Node):
 
         if xy_theta is None:
             xy_theta = self.transform_helper.convert_pose_to_xy_and_theta(self.odom_pose)
-        # generate a number from a standard normal distribution to multiply by 
+        # generate a number from a standard normal distribution for x, y, theta of each particle
         x_num = np.random.standard_normal(self.n_particles)*0.05
         y_num = np.random.standard_normal(self.n_particles)*0.05
         theta_num = np.random.standard_normal(self.n_particles)*0.1
 
         self.particle_cloud = []
 
+        # set the starting values for the particles
         for i in range(self.n_particles):
             new_particle = Particle()
             new_particle.x = float(x_num[i] + xy_theta[0])
             new_particle.y = float(y_num[i] + xy_theta[1])
             new_particle.theta = float(theta_num[i] + xy_theta[2])
-            self.particle_cloud.append(new_particle)
-        # print(self.particle_cloud)
-        
+            self.particle_cloud.append(new_particle)        
         
     def normalize_particles(self):
         """ Make sure the particle weights define a valid distribution (i.e. sum to 1.0) 
@@ -346,10 +343,10 @@ class ParticleFilter(Node):
         weights = np.array([particle.w for particle in self.particle_cloud])
         max_weight = max(weights)
         min_weight = min(weights)
+        # set the particle weights to sum to 1
         for weight in weights: 
             weight = (weight - min_weight) / (max_weight - min_weight)
         sum_weights = sum(weights)
-        # weights = weights / sum(weights)
         for particle in self.particle_cloud:
             particle.w = particle.w/sum_weights
         pass
