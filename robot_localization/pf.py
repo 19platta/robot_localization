@@ -177,9 +177,9 @@ class ParticleFilter(Node):
         elif self.moved_far_enough_to_update(new_odom_xy_theta):
             # we have moved far enough to do an update!
             self.update_particles_with_odom()    # update based on odometry
-            self.update_particles_with_laser(r, theta)   # update based on laser scan
+            #self.update_particles_with_laser(r, theta)   # update based on laser scan
             self.update_robot_pose()                # update robot's pose based on particles
-            self.resample_particles()               # resample particles to focus on areas of high density
+            #self.resample_particles()               # resample particles to focus on areas of high density
         # publish particles (so things like rviz can see them)
         self.publish_particles(msg.header.stamp)
 
@@ -205,13 +205,17 @@ class ParticleFilter(Node):
         # guess the angle of the highest weighted particle
         theta_idx = np.argmax([particle.w for particle in self.particle_cloud])
         guess_theta = self.particle_cloud[theta_idx].theta 
-        # print(f"Robot pose: ({guess_x}, {guess_y}) at angle {guess_theta}")
+        print(theta_idx)
+        guess_theta = np.mean([particle.theta for particle in self.particle_cloud])
+        print(f"Robot pose: ({guess_x}, {guess_y}) at angle {guess_theta}")
+        print(f"thetas: ({[p.theta for p in self.particle_cloud]})")
 
         
         position = Point(x=guess_x, y=guess_y, z=0.0)
         quat_data = quaternion_from_euler(0.0,0.0,guess_theta)
         orientation = Quaternion(x=quat_data[0], y=quat_data[1], z=quat_data[2], w=quat_data[3])
         self.robot_pose = Pose(position=position, orientation=orientation)
+        self.robot_pose = Particle(guess_x, guess_y, guess_theta).as_pose()
 
         self.transform_helper.fix_map_to_odom_transform(self.robot_pose,
                                                         self.odom_pose)
@@ -230,7 +234,7 @@ class ParticleFilter(Node):
                      new_odom_xy_theta[1] - self.current_odom_xy_theta[1],
                      new_odom_xy_theta[2] - self.current_odom_xy_theta[2])
 
-            new_theta_rads = np.deg2rad(new_odom_xy_theta[2])
+            new_theta_rads = new_odom_xy_theta[2]
             end_point_in_odom_mat = np.array([[np.cos(new_theta_rads), -np.sin(new_theta_rads), new_odom_xy_theta[0]],
                                     [np.sin(new_theta_rads), np.cos(new_theta_rads), new_odom_xy_theta[1]],
                                     [0,0,1]])
@@ -317,9 +321,9 @@ class ParticleFilter(Node):
         if xy_theta is None:
             xy_theta = self.transform_helper.convert_pose_to_xy_and_theta(self.odom_pose)
         # generate a number from a standard normal distribution to multiply by 
-        x_num = np.random.standard_normal(self.n_particles)
-        y_num = np.random.standard_normal(self.n_particles)
-        theta_num = np.random.standard_normal(self.n_particles)
+        x_num = np.random.standard_normal(self.n_particles)*0.05
+        y_num = np.random.standard_normal(self.n_particles)*0.05
+        theta_num = np.random.standard_normal(self.n_particles)*0.1
 
         self.particle_cloud = []
 
@@ -329,7 +333,7 @@ class ParticleFilter(Node):
             new_particle.y = float(y_num[i] + xy_theta[1])
             new_particle.theta = float(theta_num[i] + xy_theta[2])
             self.particle_cloud.append(new_particle)
-        print(self.particle_cloud)
+        # print(self.particle_cloud)
         
         
     def normalize_particles(self):
