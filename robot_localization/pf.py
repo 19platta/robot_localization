@@ -177,9 +177,9 @@ class ParticleFilter(Node):
         elif self.moved_far_enough_to_update(new_odom_xy_theta):
             # we have moved far enough to do an update!
             self.update_particles_with_odom()    # update based on odometry
-            #self.update_particles_with_laser(r, theta)   # update based on laser scan
+            self.update_particles_with_laser(r, theta)   # update based on laser scan
             self.update_robot_pose()                # update robot's pose based on particles
-            #self.resample_particles()               # resample particles to focus on areas of high density
+            self.resample_particles()               # resample particles to focus on areas of high density
         # publish particles (so things like rviz can see them)
         self.publish_particles(msg.header.stamp)
 
@@ -202,13 +202,17 @@ class ParticleFilter(Node):
         # just to get started we will fix the robot's pose to always be at the origin
         guess_x = float(np.mean([particle.x for particle in self.particle_cloud]))
         guess_y = float(np.mean([particle.y for particle in self.particle_cloud]))
+
+        print(f"particle 0 x,y: {self.particle_cloud[0].x}, {self.particle_cloud[0].y}")
+        print(f"robot maybe x,y: {guess_x}, {guess_y}")
+
         # guess the angle of the highest weighted particle
         theta_idx = np.argmax([particle.w for particle in self.particle_cloud])
         guess_theta = self.particle_cloud[theta_idx].theta 
-        print(theta_idx)
+        # print(theta_idx)
         guess_theta = np.mean([particle.theta for particle in self.particle_cloud])
-        print(f"Robot pose: ({guess_x}, {guess_y}) at angle {guess_theta}")
-        print(f"thetas: ({[p.theta for p in self.particle_cloud]})")
+        # print(f"Robot pose: ({guess_x}, {guess_y}) at angle {guess_theta}")
+        # print(f"thetas: ({[p.theta for p in self.particle_cloud]})")
 
         
         position = Point(x=guess_x, y=guess_y, z=0.0)
